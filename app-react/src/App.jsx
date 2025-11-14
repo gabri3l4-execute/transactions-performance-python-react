@@ -120,46 +120,6 @@ function App() {
 
         <div className="right-panel">
           <TransactionStream />
-          <h2>New transactions ({transactions.length})</h2>
-          <div className="transactions-list">
-            {transactions.map((tx, index) => {
-              const isNegative = tx.amount < 0;
-              const isLatestTransaction = index === 0;
-              return (
-                <div
-                  key={tx.transaction_id}
-                  className="transaction-item"
-                  data-type="transaction"
-                  data-account-id={tx.account_id}
-                  data-amount={tx.amount}
-                  data-balance={tx.balance}
-                >
-                  {isNegative ? (
-                    <div className="withdrawal">
-                      <div>Transaction amount (withdrawal)</div>
-                      <div>
-                        Transferred <code>${Math.abs(tx.amount)}</code> from
-                        account <strong>{tx.account_id}</strong>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="deposit">
-                      <div>Transaction amount (deposit)</div>
-                      <div>
-                        Transferred <code>${tx.amount}</code> to account{" "}
-                        <strong>{tx.account_id}</strong>
-                      </div>
-                    </div>
-                  )}
-                  {isLatestTransaction && (
-                    <div className="balance-info">
-                      The current account balance is <code>${tx.balance}</code>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
     </div>

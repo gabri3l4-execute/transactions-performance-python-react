@@ -4,10 +4,23 @@ import useTransactionStream from "../hooks/useTransactionStream";
 
 const TransactionRow = React.memo(function TransactionRow({
   transaction,
-  index,
+  isLatestTransaction,
 }) {
   const isNegative = transaction.amount < 0;
-  const isLatestTransaction = index === 0;
+  // Server supplies `created_at` as "YYYY-MM-DD HH:MM:SS"; make it JS Date-friendly
+  let createdAtDisplay = transaction.created_at || null;
+  try {
+    if (transaction.created_at) {
+      const dt = new Date(transaction.created_at.replace(" ", "T"));
+      createdAtDisplay = isNaN(dt.getTime())
+        ? transaction.created_at
+        : dt.toLocaleString();
+    }
+  } catch (e) {
+    // fallback to raw string
+    createdAtDisplay = transaction.created_at;
+  }
+
   return (
     <div
       key={transaction.transaction_id}
@@ -16,7 +29,17 @@ const TransactionRow = React.memo(function TransactionRow({
       data-account-id={transaction.account_id}
       data-amount={transaction.amount}
       data-balance={transaction.balance}
+      data-created-at={transaction.created_at}
     >
+      <div className="tx-meta">
+        <div>
+          <strong>ID:</strong> {transaction.transaction_id}
+        </div>
+        <div>
+          <strong>Time:</strong> {createdAtDisplay}
+        </div>
+      </div>
+
       {isNegative ? (
         <div className="withdrawal">
           <div>Transaction amount (withdrawal)</div>
@@ -34,11 +57,11 @@ const TransactionRow = React.memo(function TransactionRow({
           </div>
         </div>
       )}
-      {isLatestTransaction && (
-        <div className="balance-info">
-          The current account balance is <code>${transaction.balance}</code>
-        </div>
-      )}
+
+      <div className="balance-line">
+        <strong>Balance:</strong> <code>${transaction.balance}</code>
+        {isLatestTransaction && <span className="latest-badge"> (latest)</span>}
+      </div>
     </div>
   );
 });
@@ -64,7 +87,8 @@ export default function TransactionStream() {
         <Virtuoso
           data={data}
           itemContent={(index, t) => (
-            <TransactionRow transaction={t} index={index} />
+            // server now returns newest-first ordering, so index===0 is latest
+            <TransactionRow transaction={t} isLatestTransaction={index === 0} />
           )}
           overscan={200}
         />
