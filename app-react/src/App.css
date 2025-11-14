@@ -142,3 +142,15 @@ button:hover {
   border: 1px solid #ccc;
   border-radius: 4px;
 }
+
+.pending-badge {
+  color: #ff9800;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.latest-badge {
+  color: #28a745;
+  margin-left: 6px;
+  font-weight: 600;
+}

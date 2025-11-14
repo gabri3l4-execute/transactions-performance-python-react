@@ -9,6 +9,7 @@ function App() {
   const [amount, setAmount] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [error, setError] = useState("");
+  const [latestBalances, setLatestBalances] = useState({});
 
   const validateInput = () => {
     // Reset error
@@ -37,9 +38,33 @@ function App() {
     if (!validateInput()) {
       return;
     }
+    // Optimistic UI: insert a temporary transaction immediately
+    const amountNum = parseFloat(amount);
+    const tempId = `temp-${Date.now()}`;
+    // Estimate balance client-side when possible
+    const estimatedBalance =
+      latestBalances && latestBalances[accountId] != null
+        ? latestBalances[accountId] + amountNum
+        : null;
+
+    const optimisticTransaction = {
+      transaction_id: tempId,
+      account_id: accountId,
+      amount: amountNum,
+      created_at: new Date().toISOString(),
+      // balance may be estimated from latest known balance
+      balance: estimatedBalance,
+      optimistic: true,
+    };
+
+    // Add optimistic transaction to UI and clear form quickly
+    setTransactions((prev) => [optimisticTransaction, ...prev]);
+    setAccountId("");
+    setAmount("");
+    setError("");
 
     try {
-      // Create transaction
+      // Create transaction on server
       const response = await fetch(`${API_URL}/transactions`, {
         method: "POST",
         headers: {
@@ -47,7 +72,7 @@ function App() {
         },
         body: JSON.stringify({
           account_id: accountId,
-          amount: parseFloat(amount),
+          amount: amountNum,
         }),
       });
 
@@ -57,31 +82,27 @@ function App() {
 
       const data = await response.json();
 
-      // Fetch updated transaction
-      const transactionResponse = await fetch(
-        `${API_URL}/transactions/${data.transaction_id}`
-      );
-      const transactionData = await transactionResponse.json();
-
-      // Fetch updated balance
-      const balanceResponse = await fetch(`${API_URL}/accounts/${accountId}`);
-      const balanceData = await balanceResponse.json();
-
-      // Add transaction with balance to the list
-      setTransactions((prev) => [
-        {
-          ...transactionData,
-          balance: balanceData.balance,
-        },
-        ...prev,
+      // Fetch updated transaction and balance
+      const [transactionResponse, balanceResponse] = await Promise.all([
+        fetch(`${API_URL}/transactions/${data.transaction_id}`),
+        fetch(`${API_URL}/accounts/${accountId}`),
       ]);
 
-      // Clear both form fields
-      setAccountId("");
-      setAmount("");
-      setError("");
+      const transactionData = await transactionResponse.json();
+      const balanceData = await balanceResponse.json();
+
+      // Replace optimistic transaction with real server-provided one
+      setTransactions((prev) =>
+        prev.map((t) =>
+          t.transaction_id === tempId
+            ? { ...transactionData, balance: balanceData.balance }
+            : t
+        )
+      );
     } catch (err) {
-      setError(err.message);
+      // On error, remove optimistic transaction and show error
+      setTransactions((prev) => prev.filter((t) => t.transaction_id !== tempId));
+      setError(err.message || "Failed to create transaction");
     }
   };
 
@@ -119,7 +140,10 @@ function App() {
         </div>
 
         <div className="right-panel">
-          <TransactionStream />
+          <TransactionStream
+            injectedTransactions={transactions}
+            onLatestBalances={(map) => setLatestBalances(map)}
+          />
         </div>
       </div>
     </div>
